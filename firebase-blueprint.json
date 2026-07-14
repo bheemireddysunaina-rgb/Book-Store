@@ -1,0 +1,161 @@
+{
+  "entities": {
+    "book": {
+      "title": "Book",
+      "description": "A book available in the store inventory.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 150,
+          "description": "The title of the book"
+        },
+        "author": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "The author of the book"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "description": "A synopsis or description of the book"
+        },
+        "genre": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50,
+          "description": "The genre or category of the book"
+        },
+        "price": {
+          "type": "number",
+          "description": "The price of the book in USD"
+        },
+        "coverUrl": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "A URL linking to the cover image of the book"
+        },
+        "rating": {
+          "type": "number",
+          "description": "Average rating of the book from 1 to 5"
+        },
+        "stock": {
+          "type": "number",
+          "description": "The current quantity in inventory"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp"
+        }
+      },
+      "required": ["title", "author", "description", "genre", "price", "coverUrl", "rating", "stock", "createdAt", "updatedAt"]
+    },
+    "order": {
+      "title": "Order",
+      "description": "An order placed by a customer.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "The Firebase UID of the customer"
+        },
+        "customerName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Name of the customer placing the order"
+        },
+        "shippingAddress": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "description": "The delivery address for this order"
+        },
+        "items": {
+          "type": "array",
+          "description": "List of books in this order"
+        },
+        "totalAmount": {
+          "type": "number",
+          "description": "Total checkout price in USD"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "shipped", "delivered", "cancelled"],
+          "description": "The progress status of the shipment"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Order placement timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last progress update timestamp"
+        }
+      },
+      "required": ["userId", "customerName", "shippingAddress", "items", "totalAmount", "status", "createdAt", "updatedAt"]
+    },
+    "review": {
+      "title": "Review",
+      "description": "A book review written by a customer.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "The Firebase UID of the reviewer"
+        },
+        "userName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Display name of the reviewer"
+        },
+        "rating": {
+          "type": "number",
+          "description": "Review rating score from 1 to 5"
+        },
+        "comment": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "description": "The written feedback for the book"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Review submission timestamp"
+        }
+      },
+      "required": ["userId", "userName", "rating", "comment", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/books/{bookId}": {
+      "schema": "book",
+      "description": "Collection of books in the catalog."
+    },
+    "/books/{bookId}/reviews/{reviewId}": {
+      "schema": "review",
+      "description": "Collection of user reviews for a specific book."
+    },
+    "/orders/{orderId}": {
+      "schema": "order",
+      "description": "Collection of orders placed in the system."
+    }
+  }
+}

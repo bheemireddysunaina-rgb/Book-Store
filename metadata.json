@@ -1,0 +1,6 @@
+{
+  "name": "Book Store",
+  "description": "A comprehensive book store app with full inventory management, user authentication, personal carts, past order history, and AI book recommendations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

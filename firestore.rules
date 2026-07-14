@@ -1,0 +1,151 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- REUSABLE HELPER FUNCTIONS ---
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    // Bootstrapped Admin check using the runtime user email
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'bheemireddysunaina@gmail.com' && request.auth.token.email_verified == true
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- ENTITY VALIDATORS ---
+
+    function isValidBook(data) {
+      return data.keys().hasAll(['title', 'author', 'description', 'genre', 'price', 'coverUrl', 'rating', 'stock', 'createdAt', 'updatedAt'])
+        && data.keys().size() == 10
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 150
+        && data.author is string && data.author.size() > 0 && data.author.size() <= 100
+        && data.description is string && data.description.size() > 0 && data.description.size() <= 2000
+        && data.genre is string && data.genre.size() > 0 && data.genre.size() <= 50
+        && data.price is number && data.price >= 0
+        && data.coverUrl is string && data.coverUrl.size() <= 500
+        && data.rating is number && data.rating >= 0 && data.rating <= 5
+        && data.stock is number && data.stock >= 0;
+    }
+
+    function isValidReview(data) {
+      return data.keys().hasAll(['userId', 'userName', 'rating', 'comment', 'createdAt'])
+        && data.keys().size() == 5
+        && data.userId is string && data.userId == request.auth.uid
+        && data.userName is string && data.userName.size() > 0 && data.userName.size() <= 100
+        && data.rating is number && data.rating >= 1 && data.rating <= 5
+        && data.comment is string && data.comment.size() > 0 && data.comment.size() <= 1000;
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll(['userId', 'customerName', 'shippingAddress', 'items', 'totalAmount', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().size() == 8
+        && data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128
+        && data.customerName is string && data.customerName.size() > 0 && data.customerName.size() <= 100
+        && data.shippingAddress is string && data.shippingAddress.size() > 0 && data.shippingAddress.size() <= 500
+        && data.items is list && data.items.size() > 0 && data.items.size() <= 50
+        && data.totalAmount is number && data.totalAmount >= 0
+        && data.status is string && (data.status == 'pending' || data.status == 'shipped' || data.status == 'delivered' || data.status == 'cancelled');
+    }
+
+    // --- MATCH RULES ---
+
+    // Books Collection
+    match /books/{bookId} {
+      allow get: if isValidId(bookId);
+      allow list: if true; // Public catalog browsing
+
+      // Only administrators can perform write mutations on books catalog, except for seeding default catalog
+      allow create: if (isAdmin() || bookId in ['book-dune', 'book-mockingbird', 'book-hobbit', 'book-atomic-habits', 'book-thinking-fast', 'book-pride-prejudice']) 
+        && isValidId(bookId)
+        && isValidBook(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isAdmin()
+        && isValidId(bookId)
+        && isValidBook(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time;
+
+      allow delete: if isAdmin() && isValidId(bookId);
+
+      // Book Reviews subcollection
+      match /reviews/{reviewId} {
+        allow get: if isValidId(bookId) && isValidId(reviewId);
+        allow list: if isValidId(bookId); // Anyone can read reviews for a book
+
+        // Signed-in email-verified users can create reviews for books
+        allow create: if isEmailVerified()
+          && isValidId(bookId)
+          && isValidId(reviewId)
+          && isValidReview(incoming())
+          && incoming().createdAt == request.time;
+
+        // Reviews are immutable once written - no updates or deletes allowed for users
+        allow update, delete: if isAdmin() && isValidId(bookId) && isValidId(reviewId);
+      }
+    }
+
+    // Orders Collection
+    match /orders/{orderId} {
+      // Users can only read their own orders; admins can read all orders
+      allow get: if isValidId(orderId) 
+        && (isAdmin() || (isSignedIn() && existing().userId == request.auth.uid));
+
+      allow list: if isSignedIn() 
+        && (isAdmin() || resource.data.userId == request.auth.uid);
+
+      // Users can create orders for themselves; admins can create too
+      allow create: if isSignedIn()
+        && isValidId(orderId)
+        && isValidOrder(incoming())
+        && (isAdmin() || incoming().userId == request.auth.uid)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      // Tiered updates:
+      // Standard user can only change status to "cancelled" if currently "pending"
+      // Admin can change status and update timestamps
+      allow update: if isValidId(orderId)
+        && isValidOrder(incoming())
+        && (
+          isAdmin() || (
+            isSignedIn() 
+            && existing().userId == request.auth.uid
+            && incoming().userId == existing().userId
+            && incoming().createdAt == existing().createdAt
+            && incoming().updatedAt == request.time
+            && existing().status == 'pending'
+            && incoming().status == 'cancelled'
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+          )
+        );
+
+      allow delete: if isAdmin() && isValidId(orderId);
+    }
+  }
+}

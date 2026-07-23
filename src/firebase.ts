@@ -1,7 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { 
-  getFirestore, 
+  initializeFirestore, 
   collection, 
   getDocs, 
   writeBatch, 
@@ -14,8 +14,10 @@ import firebaseConfig from "../firebase-applet-config.json";
 // Initialize Firebase App
 const app = initializeApp(firebaseConfig);
 
-// Initialize Auth & Firestore with Database ID (Critical for correct platform execution)
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+// Initialize Auth & Firestore with Database ID and long polling (Critical for sandboxed environment execution)
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+}, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 
 // --- OPERATION TYPE ENUM ---
